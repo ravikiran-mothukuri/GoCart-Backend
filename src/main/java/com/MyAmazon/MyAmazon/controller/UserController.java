@@ -5,6 +5,8 @@ import com.MyAmazon.MyAmazon.model.User;
 import com.MyAmazon.MyAmazon.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
@@ -22,7 +24,7 @@ public class UserController {
 
     @PostMapping("/api/login")
 
-    public String login(@RequestBody User login){
+    public Map<String, String> login(@RequestBody User login){
         return userservice.login(login);
     }
 }

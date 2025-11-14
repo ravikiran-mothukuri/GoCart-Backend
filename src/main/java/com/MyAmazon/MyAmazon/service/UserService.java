@@ -7,6 +7,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -25,16 +27,23 @@ public class UserService {
 
     public void registerUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole("USER");
         repo.save(user);
     }
 
 
-    public String login(User login) {
+    public Map<String, String> login(User login) {
         Optional<User> userLog= repo.findByUsername(login.getUsername());
+        Map<String,String> response= new HashMap<>();
         if(userLog.isPresent()){
             User usr= userLog.get();
-            if(passwordEncoder.matches(login.getPassword(), usr.getPassword()))
-                return jwtUtil.generateToken(usr.getUsername());
+            if(passwordEncoder.matches(login.getPassword(), usr.getPassword())){
+
+                String token= jwtUtil.generateToken(usr.getUsername());
+                response.put("token",token);
+                response.put("role",usr.getRole());
+                return response;
+            }
             else
                 throw new RuntimeException("Invalid Password.");
 
