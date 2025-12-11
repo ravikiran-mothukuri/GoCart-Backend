@@ -8,7 +8,7 @@ import com.MyAmazon.MyAmazon.service.ProfileService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
+// @CrossOrigin(origins = "http://localhost:5173")
 public class UserProfileController {
     private ProfileService profileService;
 
