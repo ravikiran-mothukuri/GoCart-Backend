@@ -36,7 +36,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
-            "https://gocart-frontend-one.vercel.app"
+            "http://localhost:5173",
+    "https://gocart-frontend-one.vercel.app", // Production
+    "https://gocart-frontend-git-main-ravi-kirans-projects-24273051.vercel.app", // Git deploy preview
+    "https://gocart-frontend-8yy82ki32-ravi-kirans-projects-24273051.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
