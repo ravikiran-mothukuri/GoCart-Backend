@@ -25,12 +25,7 @@ public class Product {
     private LocalDate releasedate;
     private Boolean available;
 
-    private String imageName;
-    private String imageType;
-
-    @Lob
-    @Column(columnDefinition = "LONGBLOB")
-    private byte[] imageData;
+    private String imageUrl;
 
 
 }

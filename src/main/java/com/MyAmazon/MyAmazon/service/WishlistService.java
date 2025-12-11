@@ -31,7 +31,6 @@ public class WishlistService {
     @Autowired
     private JwtUtil jwtUtil;
 
-
     private Integer getUserId(String token) {
         try {
             String username = jwtUtil.extractUserName(token);
@@ -42,10 +41,7 @@ public class WishlistService {
         }
     }
 
-
-    private WishlistItemResponse toDTO(WishlistItem item) {
-        Product product = productRepo.findById(item.getProductId()).orElse(null);
-
+    private WishlistItemResponse toDTO(WishlistItem item, Product product) {
         WishlistItemResponse dto = new WishlistItemResponse();
 
         dto.setWishlistItemId(item.getId());
@@ -56,22 +52,34 @@ public class WishlistService {
             dto.setBrand(product.getBrand());
             dto.setPrice(product.getPrice());
             dto.setCategory(product.getCategory());
-            dto.setImageUrl("http://localhost:8080/api/products/" + product.getId() + "/image");
+            dto.setImageUrl(product.getImageUrl()); // FIXED
         }
+
 
         return dto;
     }
 
-
     public List<WishlistItemResponse> getWishlist(String token) {
         Integer userId = getUserId(token);
-        return wishlistRepo.findByUserId(userId)
-                .stream()
-                .map(this::toDTO)
+        List<WishlistItem> items = wishlistRepo.findByUserId(userId);
+
+        if (items.isEmpty()) {
+            return List.of();
+        }
+
+        List<Integer> productIds = items.stream()
+                .map(WishlistItem::getProductId)
+                .collect(Collectors.toList());
+
+        Map<Integer, Product> productMap = productRepo.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, product -> product));
+
+        return items.stream()
+                .map(item -> toDTO(item, productMap.get(item.getProductId())))
                 .collect(Collectors.toList());
     }
 
-
+    @Transactional
     public Map<String, Object> addToWishlist(String token, Integer productId) {
         Integer userId = getUserId(token);
         WishlistItem existing = wishlistRepo.findByUserIdAndProductId(userId, productId);
@@ -94,7 +102,6 @@ public class WishlistService {
         response.put("wishlist", getWishlist(token));
         return response;
     }
-
 
     @Transactional
     public List<WishlistItemResponse> removeFromWishlist(String token, Integer productId) {

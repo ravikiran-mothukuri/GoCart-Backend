@@ -40,16 +40,10 @@ public class ProductService {
 
 
 
-    public Product addProduct(Product product, MultipartFile imageFile) throws IOException {
-        try {
-            product.setImageName(imageFile.getOriginalFilename());
-            product.setImageType(imageFile.getContentType());
-            product.setImageData(imageFile.getBytes());
-        } catch (IOException e){
-            throw new IOException("Error processing image file", e);
-        }
+    public Product addProduct(Product product) {
         return repo.save(product);
     }
+
 
 
     @Transactional
@@ -59,6 +53,11 @@ public class ProductService {
         // 2. Remove product from wishlist
         wishlistRepo.deleteByProductId(id);
         repo.deleteById(id);
+    }
+
+    public List<Product> getSearchProducts(String query) {
+
+        return repo.searchByNameOrCategoryOrDescription(query);
     }
 }
 

@@ -1,0 +1,117 @@
+package com.MyAmazon.MyAmazon.service;
+
+import com.MyAmazon.MyAmazon.model.*;
+import com.MyAmazon.MyAmazon.repository.*;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class OrderService {
+    private final OrderRepository orderRepo;
+    private final OrderItemRepository itemRepo;
+    private final WarehouseService warehouseService;
+    private final DeliveryAssignmentService deliveryService;
+    private final OrderHistoryService historyService;
+    private final CartItemRepository cartRepo;
+    private final WarehouseInventoryRepository warehouseInventoryRepository;
+    private final UserProfileRepository userProfileRepository;
+
+    public OrderService(
+            OrderRepository orderRepo,
+            OrderItemRepository itemRepo,
+            WarehouseService warehouseService,
+            DeliveryAssignmentService deliveryService,
+            OrderHistoryService historyService,
+            CartItemRepository cartRepo,
+            UserProfileRepository userProfileRepository,
+            WarehouseInventoryRepository warehouseInventoryRepository
+    ) {
+        this.orderRepo = orderRepo;
+        this.itemRepo = itemRepo;
+        this.warehouseService = warehouseService;
+        this.deliveryService = deliveryService;
+        this.historyService = historyService;
+        this.cartRepo = cartRepo;
+        this.userProfileRepository= userProfileRepository;
+        this.warehouseInventoryRepository= warehouseInventoryRepository;
+    }
+
+    @Transactional
+    public Order placeOrder(User user){
+
+        // 1. fetch cart
+        List<CartItem> cart= cartRepo.findByUserId(user.getId());
+        if(cart.isEmpty())
+            throw new RuntimeException("Cart is empty.");
+
+        // 2. fetch user profile
+        UserProfile userProfile= userProfileRepository.findByUserId(user.getId()).orElseThrow(()-> new RuntimeException("Profile not found"));
+
+        if (userProfile.getCurrentLatitude() == null || userProfile.getCurrentLongitude() == null)
+            throw new RuntimeException("Location must be set before placing order.");
+
+
+        double userLat= userProfile.getCurrentLatitude();
+        double userLon= userProfile.getCurrentLongitude();
+
+        // 3. find nearest warehouse.
+        Warehouse nearest= warehouseService.findNearestWarehouse(userLat,userLon);
+
+        if(nearest==null){
+            throw new RuntimeException("The Items is not Delivered to your location.");
+        }
+
+        Integer warehouseId= nearest.getId();
+        // 4. validate the stock in the inventory before proceeding.
+        for(CartItem c: cart){
+            int productId= c.getProductId();
+            int qty= c.getQuantity();
+
+            WarehouseInventory inventory= warehouseInventoryRepository.findByWarehouseIdAndProductId(warehouseId,productId);
+            if(inventory==null){
+                throw new RuntimeException("Product " + productId + " unavailable.");
+            }
+            if(inventory.getQuantity()<qty){
+                throw new RuntimeException("Insufficient stock for product " + productId);
+            }
+
+            int updated = warehouseInventoryRepository.decrementStockIfAvailable(warehouseId, productId, qty);
+            if (updated == 0)
+                throw new RuntimeException("Stock unavailable for product " + productId);
+        }
+
+        // 5. assigns delivery partner.
+
+        DeliveryPartner partner= deliveryService.assignPartner(nearest);
+        if(partner==null)
+            throw new RuntimeException("No delivery partner is available.");
+
+        // 5. create order.
+        Order order= new Order();
+        order.setUserId(user.getId());
+        order.setWarehouseId(nearest.getId());
+        order.setDeliveryPartnerId(partner.getId());
+        order.setStatus("PLACED");
+        order= orderRepo.save(order);
+
+        // 6. save orderItems.
+        for(CartItem c: cart){
+            OrderItem item= new OrderItem();
+            item.setOrderId(order.getId());
+            item.setProductId(c.getProductId());
+            item.setQuantity(c.getQuantity());
+            itemRepo.save(item);
+        }
+
+        // 7. clear cart.
+        cartRepo.deleteByUserId(user.getId());
+
+        // 8. log the history.
+        historyService.log(order.getId(), "PLACED");
+        return order;
+    }
+
+
+}
