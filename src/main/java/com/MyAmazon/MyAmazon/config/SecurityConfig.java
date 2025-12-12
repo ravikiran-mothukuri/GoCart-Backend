@@ -16,7 +16,7 @@ import java.util.List;
 
 @Configuration
 public class SecurityConfig {
-
+    // Updated at 12:30 pm
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
