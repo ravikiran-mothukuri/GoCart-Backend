@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Entity
 @Data
 @NoArgsConstructor
+@Table(name = "wishlist_item")
 public class WishlistItem {
 
     @Id
