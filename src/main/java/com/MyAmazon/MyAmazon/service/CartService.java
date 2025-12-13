@@ -9,12 +9,14 @@ import com.MyAmazon.MyAmazon.repository.ProductRepository;
 import com.MyAmazon.MyAmazon.repository.UserRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import jakarta.transaction.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class CartService {
@@ -86,10 +88,23 @@ public class CartService {
     @Transactional
     public List<CartItemResponse> addToCart(String token, Integer productId) {
         Integer userId = getUserId(token);
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED");
+        }
+
+        Product product= productRepo.findById(productId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND"));
+
+        if(product.getQuantity()<=0){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OUT_OF_STOCK");
+        }
 
         CartItem existing = cartRepo.findByUserIdAndProductId(userId, productId);
 
         if (existing != null) {
+            if (existing.getQuantity() + 1 > product.getQuantity()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "STOCK_LIMIT_REACHED");
+            }
             existing.setQuantity(existing.getQuantity() + 1);
             cartRepo.save(existing);
         } else {
@@ -106,14 +121,24 @@ public class CartService {
     public List<CartItemResponse> updateQuantity(String token, Integer productId, Integer qty) {
         Integer userId = getUserId(token);
 
+        if(userId==null){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED");
+        }
+
         CartItem existing = cartRepo.findByUserIdAndProductId(userId, productId);
 
         if (existing == null)
             return getCart(token);
 
+        Product product= productRepo.findById(productId).orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND"));
+
         if (qty <= 0) {
             cartRepo.delete(existing);
             return getCart(token);
+        }
+
+        if(qty>product.getQuantity()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "STOCK_LIMIT_REACHED");
         }
 
         existing.setQuantity(qty);
@@ -125,6 +150,10 @@ public class CartService {
     public List<CartItemResponse> removeFromCart(String token, Integer productId) {
         Integer userId = getUserId(token);
 
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED");
+        }
+        
         CartItem existing = cartRepo.findByUserIdAndProductId(userId, productId);
         if (existing != null)
             cartRepo.delete(existing);
