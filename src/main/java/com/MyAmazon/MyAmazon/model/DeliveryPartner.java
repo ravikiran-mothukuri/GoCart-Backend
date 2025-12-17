@@ -23,7 +23,8 @@ public class DeliveryPartner {
 
     private String password;
 
-    private String status= "AVAILABLE"; // OFFLINE, ONLINE, AVAILABLE, BUSY
+    private String online= "OFF";
+    private String status= "IDLE";
 
     private Double currentLatitude= 0.0;
     private Double currentLongitude= 0.0;

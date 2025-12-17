@@ -153,7 +153,7 @@ public class CartService {
         if (userId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED");
         }
-        
+
         CartItem existing = cartRepo.findByUserIdAndProductId(userId, productId);
         if (existing != null)
             cartRepo.delete(existing);

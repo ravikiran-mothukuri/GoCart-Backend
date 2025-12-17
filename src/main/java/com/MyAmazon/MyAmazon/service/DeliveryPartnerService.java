@@ -3,13 +3,18 @@ package com.MyAmazon.MyAmazon.service;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
 import com.MyAmazon.MyAmazon.repository.DeliveryPartnerRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class DeliveryPartnerService {
+    private static final Logger logger = LoggerFactory.getLogger(DeliveryPartnerService.class);
+
     private DeliveryPartnerRepository deliveryPartnerRepository;
     public JwtUtil jwtUtil;
     public PasswordEncoder passwordEncoder;
@@ -21,6 +26,15 @@ public class DeliveryPartnerService {
     }
 
     public DeliveryPartner register(DeliveryPartner deliveryPartner) {
+
+        if (deliveryPartnerRepository.findByUsername(deliveryPartner.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+
+        if (deliveryPartnerRepository.findByMobile(deliveryPartner.getMobile()).isPresent()) {
+            throw new RuntimeException("Mobile number already registered");
+        }
+
         deliveryPartner.setPassword(passwordEncoder.encode(deliveryPartner.getPassword()));
         if (deliveryPartner.getCurrentLatitude() == null)
             deliveryPartner.setCurrentLatitude(0.0);
@@ -28,54 +42,154 @@ public class DeliveryPartnerService {
         if (deliveryPartner.getCurrentLongitude() == null)
             deliveryPartner.setCurrentLongitude(0.0);
 
+        // to track and save the important details.
+        logger.info("Registering new delivery partner: {}", deliveryPartner.getUsername());
+
         return deliveryPartnerRepository.save(deliveryPartner);
     }
 
 
     public String login(DeliveryPartner deliveryPartner) {
+
         Optional<DeliveryPartner> partnerLog= deliveryPartnerRepository.findByUsername(deliveryPartner.getUsername());
-        if(partnerLog.isPresent()){
-            DeliveryPartner part= partnerLog.get();
-            if(passwordEncoder.matches(deliveryPartner.getPassword(),part.getPassword())){
-                String token= jwtUtil.generateToken(part.getUsername());
-                return token;
-            }
-            else
-                throw new RuntimeException("Invalid Password.");
 
+        if (partnerLog.isEmpty()) {
+            logger.warn("Login attempt with non-existent username: {}",
+                    deliveryPartner.getUsername());
+            throw new RuntimeException("User not found");
         }
-        else
-            throw new RuntimeException("User not Found.");
+
+        DeliveryPartner partner= partnerLog.get();
+
+        if (!passwordEncoder.matches(deliveryPartner.getPassword(), partner.getPassword())) {
+            logger.warn("Invalid password attempt for username: {}",
+                    deliveryPartner.getUsername());
+            throw new RuntimeException("Invalid password");
+        }
+
+        logger.info("Successful login for partner: {}", partner.getUsername());
+        return jwtUtil.generateToken(partner.getUsername());
     }
 
-    public DeliveryPartner getByUsername(String username){
-        return deliveryPartnerRepository.findByUsername(username).orElseThrow(()-> new RuntimeException("Partner not found."));
+    public DeliveryPartner getByUsername(String username) {
+        return deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
     }
+
+//    public DeliveryPartner getByUsername(String username){
+//        return deliveryPartnerRepository.findByUsername(username).orElseThrow(()-> new RuntimeException("Partner not found."));
+//    }
 
     public DeliveryPartner updateLocation(String username, double lat, double lon) {
-        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+
+        if (lat < -90 || lat > 90) {
+            throw new IllegalArgumentException("Invalid latitude: must be between -90 and 90");
+        }
+        if (lon < -180 || lon > 180) {
+            throw new IllegalArgumentException("Invalid longitude: must be between -180 and 180");
+        }
+
+        DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
+
         partner.setCurrentLatitude(lat);
         partner.setCurrentLongitude(lon);
+
+        logger.info("Updated location for partner {}: ({}, {})", username, lat, lon);
         return deliveryPartnerRepository.save(partner);
     }
 
-    public DeliveryPartner updateStatus(String username, String status) {
-        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
-        partner.setStatus(status);
+//    public DeliveryPartner updateLocation(String username, double lat, double lon) {
+//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+//        partner.setCurrentLatitude(lat);
+//        partner.setCurrentLongitude(lon);
+//        return deliveryPartnerRepository.save(partner);
+//    }
+
+    public DeliveryPartner updateOnlineStatus(String username, String status) {
+
+        if (!status.equals("ON") && !status.equals("OFF")) {
+            throw new IllegalArgumentException("Invalid online status: must be ON or OFF");
+        }
+
+        DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
+
+        partner.setOnline(status);
+
+        // Update availability status based on online status
+        if (status.equals("OFF")) {
+            partner.setStatus("IDLE");
+        } else if (partner.getCurrentOrderId() == null) {
+            partner.setStatus("AVAILABLE");
+        }
+
+        logger.info("Updated online status for partner {}: {}", username, status);
         return deliveryPartnerRepository.save(partner);
     }
+
+//    public DeliveryPartner updateOnlineStatus(String username, String status) {
+//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+//        partner.setOnline(status);
+//        return deliveryPartnerRepository.save(partner);
+//    }
 
     public void markOrderPicked(String username, Integer orderId) {
-        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+        DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
+
+        if (partner.getCurrentOrderId() != null) {
+            throw new RuntimeException("Partner already has an active order");
+        }
+
         partner.setCurrentOrderId(orderId);
         partner.setStatus("BUSY");
+
+        logger.info("Partner {} picked up order {}", username, orderId);
         deliveryPartnerRepository.save(partner);
     }
 
+//    public void markOrderPicked(String username, Integer orderId) {
+//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+//        partner.setCurrentOrderId(orderId);
+//        partner.setStatus("BUSY");
+//        deliveryPartnerRepository.save(partner);
+//    }
+
     public void markDelivered(String username, Integer orderId) {
-        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+        DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
+
+        if (partner.getCurrentOrderId() == null || !partner.getCurrentOrderId().equals(orderId)) {
+            throw new RuntimeException("Order ID mismatch or no active order");
+        }
+
         partner.setCurrentOrderId(null);
-        partner.setStatus("AVAILABLE");
+
+        // Set status based on online status
+        if (partner.getOnline().equals("ON")) {
+            partner.setStatus("AVAILABLE");
+        } else {
+            partner.setStatus("IDLE");
+        }
+
+        logger.info("Partner {} delivered order {}", username, orderId);
         deliveryPartnerRepository.save(partner);
+    }
+
+//    public void markDelivered(String username, Integer orderId) {
+//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
+//        partner.setCurrentOrderId(null);
+//        partner.setStatus("AVAILABLE");
+//        deliveryPartnerRepository.save(partner);
+//    }
+
+    public java.util.Map<String, Object> getPartnerStats(String username) {
+        DeliveryPartner partner = getByUsername(username);
+
+        // This would typically query order history
+        // For now, returning mock data structure
+        return java.util.Map.of(
+                "totalDeliveries", 0,
+                "todayDeliveries", 0,
+                "totalEarnings", 0.0,
+                "todayEarnings", 0.0,
+                "rating", 5.0
+        );
     }
 }
