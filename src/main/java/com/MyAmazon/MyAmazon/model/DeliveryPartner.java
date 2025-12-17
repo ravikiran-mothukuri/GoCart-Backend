@@ -22,9 +22,11 @@ public class DeliveryPartner {
     private String mobile;
 
     private String password;
-
+    private String name= "User";
     private String online= "OFF";
     private String status= "IDLE";
+
+    private String vehicle= "BIKE"; // BIKE, SCOOTER.
 
     private Double currentLatitude= 0.0;
     private Double currentLongitude= 0.0;

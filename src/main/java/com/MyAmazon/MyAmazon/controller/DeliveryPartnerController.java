@@ -1,5 +1,6 @@
 package com.MyAmazon.MyAmazon.controller;
 
+import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
 import com.MyAmazon.MyAmazon.service.DeliveryPartnerService;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
@@ -24,10 +25,6 @@ public class DeliveryPartnerController {
     }
 
     // Register a new Delivery Partner.
-//    @PostMapping("/register")
-//    public ResponseEntity<?> register(@RequestBody DeliveryPartner deliveryPartner){
-//        return ResponseEntity.ok(deliveryPartnerService.register(deliveryPartner));
-//    }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody DeliveryPartner deliveryPartner) {
@@ -71,18 +68,7 @@ public class DeliveryPartnerController {
                     .body(Map.of("success", false, "message", e.getMessage()));
         }
     }
-//
-//    @PostMapping("/login")
-//    public ResponseEntity<?> login(@RequestBody DeliveryPartner deliveryPartner){
-//        String token= deliveryPartnerService.login(deliveryPartner);
-//        DeliveryPartner dbPartner= deliveryPartnerService.getByUsername(deliveryPartner.getUsername());
-//        return ResponseEntity.ok(Map.of(
-//                "token", token,
-//                "id", dbPartner.getId(),
-//                "username", dbPartner.getUsername(),
-//                "status", dbPartner.getStatus()
-//        ));
-//    }
+
 
     // get the Delivery person profile.
 
@@ -134,17 +120,6 @@ public class DeliveryPartnerController {
         }
     }
 
-//    @PutMapping("/updateLocation")
-//    public ResponseEntity<?> updateLocation(@RequestHeader("Authorization") String authHeader,@RequestBody Map<String,Double> body){
-//        String token= authHeader.replace("Bearer ","");
-//        String username= jwtUtil.extractUserName(token);
-//
-//        double lat= body.get("lat");
-//        double lon= body.get("lon");
-//
-//        DeliveryPartner partner= deliveryPartnerService.updateLocation(username,lat,lon);
-//        return ResponseEntity.ok(Map.of("message", "Location updated", "partner", partner));
-//    }
 
     // update the user online status
 
@@ -170,15 +145,6 @@ public class DeliveryPartnerController {
         }
     }
 
-//    @PutMapping("/online/{online}")
-//    public ResponseEntity<?> updateOnline(@RequestHeader("Authorization") String authHeader, @PathVariable String online){
-//        String token = authHeader.replace("Bearer ", "");
-//        String username = jwtUtil.extractUserName(token);
-//
-//        DeliveryPartner partner= deliveryPartnerService.updateOnlineStatus(username,online);
-//        return ResponseEntity.ok(Map.of("online", partner.getOnline()));
-//    }
-
     // picking the order.
 
     @PutMapping("/order/picked/{orderId}")
@@ -200,14 +166,6 @@ public class DeliveryPartnerController {
         }
     }
 
-//    @PutMapping("/order/picked/{orderId}")
-//    public ResponseEntity<?> markPicked(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
-//        String token = authHeader.replace("Bearer ", "");
-//        String username = jwtUtil.extractUserName(token);
-//
-//        deliveryPartnerService.markOrderPicked(username, orderId);
-//        return ResponseEntity.ok(Map.of("message", "Order picked"));
-//    }
 
     // delivered of order.
     @PutMapping("/order/delivered/{orderId}")
@@ -229,14 +187,6 @@ public class DeliveryPartnerController {
         }
     }
 
-//    @PutMapping("/order/delivered/{orderId}")
-//    public ResponseEntity<?> markDelivered(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
-//        String token = authHeader.replace("Bearer ", "");
-//        String username = jwtUtil.extractUserName(token);
-//
-//        deliveryPartnerService.markDelivered(username, orderId);
-//        return ResponseEntity.ok(Map.of("message", "Order delivered"));
-//    }
 
     // Get the status of the current order.
 
@@ -258,17 +208,7 @@ public class DeliveryPartnerController {
         }
     }
 
-//    @GetMapping("/current-order")
-//    public ResponseEntity<?> getCurrentOrder(@RequestHeader("Authorization") String authHeader) {
-//        String token = authHeader.replace("Bearer ", "");
-//        String username = jwtUtil.extractUserName(token);
-//
-//        DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
-//
-//        return ResponseEntity.ok(Map.of(
-//                "currentOrderId", partner.getCurrentOrderId()
-//        ));
-//    }
+
 
     @GetMapping("/stats")
     public ResponseEntity<?> getStats(@RequestHeader("Authorization") String authHeader) {
@@ -285,6 +225,24 @@ public class DeliveryPartnerController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Failed to fetch statistics"));
+        }
+    }
+
+    // Update the delivery profile
+    @PutMapping("/update/profile")
+    public ResponseEntity<?> updateProfileById(@RequestHeader("Authorization") String authHeader, @RequestBody DeliveryProfileUpdateDTO profileUpdateDTO){
+        try{
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            DeliveryPartner updatedInfo= deliveryPartnerService.updateProfile(username,profileUpdateDTO);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "stats", updatedInfo
+            ));
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to Update the Delivery Profile."));
         }
     }
 

@@ -1,10 +1,12 @@
 package com.MyAmazon.MyAmazon.service;
 
+import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
 import com.MyAmazon.MyAmazon.repository.DeliveryPartnerRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -75,9 +77,6 @@ public class DeliveryPartnerService {
         return deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
     }
 
-//    public DeliveryPartner getByUsername(String username){
-//        return deliveryPartnerRepository.findByUsername(username).orElseThrow(()-> new RuntimeException("Partner not found."));
-//    }
 
     public DeliveryPartner updateLocation(String username, double lat, double lon) {
 
@@ -97,12 +96,6 @@ public class DeliveryPartnerService {
         return deliveryPartnerRepository.save(partner);
     }
 
-//    public DeliveryPartner updateLocation(String username, double lat, double lon) {
-//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
-//        partner.setCurrentLatitude(lat);
-//        partner.setCurrentLongitude(lon);
-//        return deliveryPartnerRepository.save(partner);
-//    }
 
     public DeliveryPartner updateOnlineStatus(String username, String status) {
 
@@ -125,11 +118,6 @@ public class DeliveryPartnerService {
         return deliveryPartnerRepository.save(partner);
     }
 
-//    public DeliveryPartner updateOnlineStatus(String username, String status) {
-//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
-//        partner.setOnline(status);
-//        return deliveryPartnerRepository.save(partner);
-//    }
 
     public void markOrderPicked(String username, Integer orderId) {
         DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
@@ -145,12 +133,6 @@ public class DeliveryPartnerService {
         deliveryPartnerRepository.save(partner);
     }
 
-//    public void markOrderPicked(String username, Integer orderId) {
-//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
-//        partner.setCurrentOrderId(orderId);
-//        partner.setStatus("BUSY");
-//        deliveryPartnerRepository.save(partner);
-//    }
 
     public void markDelivered(String username, Integer orderId) {
         DeliveryPartner partner = deliveryPartnerRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Partner not found: " + username));
@@ -172,12 +154,6 @@ public class DeliveryPartnerService {
         deliveryPartnerRepository.save(partner);
     }
 
-//    public void markDelivered(String username, Integer orderId) {
-//        DeliveryPartner partner= deliveryPartnerRepository.findByUsername(username).orElseThrow();
-//        partner.setCurrentOrderId(null);
-//        partner.setStatus("AVAILABLE");
-//        deliveryPartnerRepository.save(partner);
-//    }
 
     public java.util.Map<String, Object> getPartnerStats(String username) {
         DeliveryPartner partner = getByUsername(username);
@@ -191,5 +167,24 @@ public class DeliveryPartnerService {
                 "todayEarnings", 0.0,
                 "rating", 5.0
         );
+    }
+
+
+    public DeliveryPartner updateProfile(String username, DeliveryProfileUpdateDTO dto) {
+
+        DeliveryPartner currentData= deliveryPartnerRepository.findByUsername(username).orElseThrow(()-> new RuntimeException("No Deliver User is Found."));
+
+        currentData.setMobile(dto.getMobile());
+        currentData.setName(dto.getName());
+        currentData.setVehicle(dto.getVehicle());
+
+        if (dto.getCurrentLatitude() != null)
+            currentData.setCurrentLatitude(dto.getCurrentLatitude());
+
+        if (dto.getCurrentLongitude() != null)
+            currentData.setCurrentLongitude(dto.getCurrentLongitude());
+
+        return deliveryPartnerRepository.save(currentData);
+
     }
 }
