@@ -2,14 +2,23 @@ package com.MyAmazon.MyAmazon.controller;
 
 import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
+import com.MyAmazon.MyAmazon.model.Order;
+import com.MyAmazon.MyAmazon.model.OrderItem;
+import com.MyAmazon.MyAmazon.model.UserProfile;
+import com.MyAmazon.MyAmazon.repository.OrderItemRepository;
+import com.MyAmazon.MyAmazon.repository.UserProfileRepository;
 import com.MyAmazon.MyAmazon.service.DeliveryPartnerService;
+import com.MyAmazon.MyAmazon.service.OrderService;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 // @CrossOrigin(origins = "http://localhost:5173/")
@@ -18,10 +27,16 @@ public class DeliveryPartnerController {
 
     private DeliveryPartnerService deliveryPartnerService;
     private JwtUtil jwtUtil;
+    private final OrderItemRepository orderItemRepository;
+    private final UserProfileRepository userProfileRepository;
+    private final OrderService orderService;
 
-    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil){
+    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil, OrderItemRepository orderItemRepository,UserProfileRepository userProfileRepository,OrderService orderService){
         this.deliveryPartnerService= deliveryPartnerService;
         this.jwtUtil= jwtUtil;
+        this.orderItemRepository= orderItemRepository;
+        this.userProfileRepository= userProfileRepository;
+        this.orderService= orderService;
     }
 
     // Register a new Delivery Partner.
@@ -246,5 +261,67 @@ public class DeliveryPartnerController {
         }
     }
 
+    // Add this endpoint to get all assigned orders
+    @GetMapping("/orders")
+    public ResponseEntity<?> getAssignedOrders(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
+
+            // Get all orders assigned to this partner (excluding delivered ones)
+            List<Order> orders = orderService.getOrdersByDeliveryPartnerId(partner.getId());
+
+            // Transform to include necessary details
+            List<Map<String, Object>> orderDetails = orders.stream()
+                    .map(order -> {
+                        UserProfile userProfile = userProfileRepository.findByUserId(order.getUserId())
+                                .orElse(null);
+
+                        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+
+                        Map<String, Object> orderMap = new HashMap<>();
+                        orderMap.put("id", order.getId());
+                        orderMap.put("customer", order.getUsername());
+                        orderMap.put("address", userProfile != null ? userProfile.getAddress() : "Address not available");
+                        orderMap.put("status", order.getStatus());
+                        orderMap.put("items", items.size());
+                        orderMap.put("currentOrderId", partner.getCurrentOrderId());
+                        orderMap.put("createdAt", order.getCreatedAt());
+
+                        return orderMap;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "orders", orderDetails,
+                    "currentOrderId", partner.getCurrentOrderId()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to fetch orders: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/order/completed")
+    public ResponseEntity<?> getAllOrdersByUserId(@RequestHeader("Authorization") String authHeader){
+        try{
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
+            List<Order> totalOrders= orderService.getOrdersByDeliveryPartnerId(partner.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "orders", totalOrders
+            ));
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to fetch completed orders"));
+        }
+    }
 
 }

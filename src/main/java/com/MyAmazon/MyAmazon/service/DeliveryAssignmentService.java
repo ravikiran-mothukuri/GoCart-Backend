@@ -21,7 +21,7 @@ public class DeliveryAssignmentService {
 
     public DeliveryPartner assignPartner(Warehouse warehouse){
 
-        List<DeliveryPartner> partners= deliveryPartnerRepository.findAvailablePartners();
+        List<DeliveryPartner> partners= deliveryPartnerRepository.findByOnlineAndStatus("ON", "AVAILABLE");
 
         if(partners.isEmpty()){
             logger.warn("No available delivery partners");
@@ -41,8 +41,6 @@ public class DeliveryAssignmentService {
         }
 
         if(bestPartner!=null){
-            bestPartner.setStatus("BUSY");
-            deliveryPartnerRepository.save(bestPartner);
             logger.info("Assigned partner {} to warehouse at distance {:.2f} km",bestPartner.getUsername(), min_dist);
         }
         else {

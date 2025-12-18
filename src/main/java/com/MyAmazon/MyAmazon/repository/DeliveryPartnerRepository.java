@@ -27,4 +27,6 @@ public interface DeliveryPartnerRepository extends JpaRepository<DeliveryPartner
     List<DeliveryPartner> findPartnersInRange(double minLat, double maxLat,double minLon, double maxLon);
 
     Optional<Object> findByMobile(String mobile);
+
+    List<DeliveryPartner> findByOnlineAndStatus(String on, String available);
 }

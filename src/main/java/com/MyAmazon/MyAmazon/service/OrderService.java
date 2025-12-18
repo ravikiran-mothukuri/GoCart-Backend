@@ -17,6 +17,7 @@ public class OrderService {
     private final CartItemRepository cartRepo;
     private final WarehouseInventoryRepository warehouseInventoryRepository;
     private final UserProfileRepository userProfileRepository;
+    private final DeliveryPartnerRepository deliveryPartnerRepository;
 
     public OrderService(
             OrderRepository orderRepo,
@@ -26,7 +27,8 @@ public class OrderService {
             OrderHistoryService historyService,
             CartItemRepository cartRepo,
             UserProfileRepository userProfileRepository,
-            WarehouseInventoryRepository warehouseInventoryRepository
+            WarehouseInventoryRepository warehouseInventoryRepository,
+            DeliveryPartnerRepository deliveryPartnerRepository
     ) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
@@ -36,6 +38,7 @@ public class OrderService {
         this.cartRepo = cartRepo;
         this.userProfileRepository= userProfileRepository;
         this.warehouseInventoryRepository= warehouseInventoryRepository;
+        this.deliveryPartnerRepository= deliveryPartnerRepository;
     }
 
     @Transactional
@@ -91,10 +94,15 @@ public class OrderService {
         // 5. create order.
         Order order= new Order();
         order.setUserId(user.getId());
+        order.setUsername(user.getUsername());
         order.setWarehouseId(nearest.getId());
         order.setDeliveryPartnerId(partner.getId());
         order.setStatus("PLACED");
         order= orderRepo.save(order);
+
+        partner.setCurrentOrderId(order.getId());
+        partner.setStatus("BUSY");
+        deliveryPartnerRepository.save(partner);
 
         // 6. save orderItems.
         for(CartItem c: cart){
@@ -113,5 +121,16 @@ public class OrderService {
         return order;
     }
 
+//    public List<Order> getOrdersByPartnerId(Integer partnerId) {
+//        return orderRepo.findByDeliveryPartnerId(partnerId);
+//    }
 
+
+    public List<Order> getOrdersByDeliveryPartnerId(Integer id) {
+        return orderRepo.findByDeliveryPartnerIdAndStatusNot(id,"DELIVERED");
+    }
+
+    public List<Order> getOrdersByUserId(int id) {
+        return orderRepo.findOrderByUserId(id);
+    }
 }

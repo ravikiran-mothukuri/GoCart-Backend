@@ -71,21 +71,6 @@ public class ProductController {
     }
 
 
-
-    //   PUBLIC: Get image by product ID
-
-//    @GetMapping("/api/products/{id}/image")
-//    public ResponseEntity<byte[]> getImageByProductId(@PathVariable int id) {
-//        Product product = service.getProductById(id);
-//        if (product != null && product.getImageData() != null) {
-//            return ResponseEntity.ok()
-//                    .contentType(MediaType.valueOf(product.getImageType()))
-//                    .body(product.getImageData());
-//        }
-//        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-//    }
-
-
     //   ADMIN ONLY: Delete product
 
     @DeleteMapping("/api/product/{id}")

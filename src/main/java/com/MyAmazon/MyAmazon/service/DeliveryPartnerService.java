@@ -2,16 +2,24 @@ package com.MyAmazon.MyAmazon.service;
 
 import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
+import com.MyAmazon.MyAmazon.model.Order;
+import com.MyAmazon.MyAmazon.model.OrderItem;
+import com.MyAmazon.MyAmazon.model.UserProfile;
 import com.MyAmazon.MyAmazon.repository.DeliveryPartnerRepository;
+import com.MyAmazon.MyAmazon.repository.OrderRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class DeliveryPartnerService {
@@ -20,11 +28,15 @@ public class DeliveryPartnerService {
     private DeliveryPartnerRepository deliveryPartnerRepository;
     public JwtUtil jwtUtil;
     public PasswordEncoder passwordEncoder;
+    public OrderRepository orderRepository;
+    public OrderHistoryService orderHistoryService;
 
-    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder){
+    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder,OrderRepository orderRepository,OrderHistoryService orderHistoryService){
         this.deliveryPartnerRepository= deliveryPartnerRepository;
         this.jwtUtil= jwtUtil;
         this.passwordEncoder= passwordEncoder;
+        this.orderRepository= orderRepository;
+        this.orderHistoryService= orderHistoryService;
     }
 
     public DeliveryPartner register(DeliveryPartner deliveryPartner) {
@@ -108,11 +120,12 @@ public class DeliveryPartnerService {
         partner.setOnline(status);
 
         // Update availability status based on online status
-        if (status.equals("OFF")) {
-            partner.setStatus("IDLE");
-        } else if (partner.getCurrentOrderId() == null) {
+        if (status.equals("ON")) {
             partner.setStatus("AVAILABLE");
+        } else {
+            partner.setStatus("IDLE");
         }
+
 
         logger.info("Updated online status for partner {}: {}", username, status);
         return deliveryPartnerRepository.save(partner);
@@ -126,11 +139,17 @@ public class DeliveryPartnerService {
             throw new RuntimeException("Partner already has an active order");
         }
 
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+
         partner.setCurrentOrderId(orderId);
         partner.setStatus("BUSY");
-
-        logger.info("Partner {} picked up order {}", username, orderId);
         deliveryPartnerRepository.save(partner);
+
+        order.setStatus("PICKED_UP");
+        orderRepository.save(order);
+//        logger.info("Partner {} picked up order {}", username, orderId);
+        orderHistoryService.log(orderId, "PICKED_UP");
+
     }
 
 
@@ -141,6 +160,8 @@ public class DeliveryPartnerService {
             throw new RuntimeException("Order ID mismatch or no active order");
         }
 
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+
         partner.setCurrentOrderId(null);
 
         // Set status based on online status
@@ -150,8 +171,11 @@ public class DeliveryPartnerService {
             partner.setStatus("IDLE");
         }
 
-        logger.info("Partner {} delivered order {}", username, orderId);
         deliveryPartnerRepository.save(partner);
+        order.setStatus("DELIVERED");
+        orderRepository.save(order);
+        orderHistoryService.log(orderId, "DELIVERED");
+
     }
 
 
