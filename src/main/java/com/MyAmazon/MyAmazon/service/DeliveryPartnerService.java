@@ -3,23 +3,18 @@ package com.MyAmazon.MyAmazon.service;
 import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
 import com.MyAmazon.MyAmazon.model.Order;
-import com.MyAmazon.MyAmazon.model.OrderItem;
-import com.MyAmazon.MyAmazon.model.UserProfile;
+
 import com.MyAmazon.MyAmazon.repository.DeliveryPartnerRepository;
 import com.MyAmazon.MyAmazon.repository.OrderRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+
 
 @Service
 public class DeliveryPartnerService {

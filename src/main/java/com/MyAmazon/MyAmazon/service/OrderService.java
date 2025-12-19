@@ -5,7 +5,9 @@ import com.MyAmazon.MyAmazon.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class OrderService {
@@ -18,6 +20,7 @@ public class OrderService {
     private final WarehouseInventoryRepository warehouseInventoryRepository;
     private final UserProfileRepository userProfileRepository;
     private final DeliveryPartnerRepository deliveryPartnerRepository;
+    private final ProductRepository productRepository;
 
     public OrderService(
             OrderRepository orderRepo,
@@ -28,7 +31,8 @@ public class OrderService {
             CartItemRepository cartRepo,
             UserProfileRepository userProfileRepository,
             WarehouseInventoryRepository warehouseInventoryRepository,
-            DeliveryPartnerRepository deliveryPartnerRepository
+            DeliveryPartnerRepository deliveryPartnerRepository,
+            ProductRepository productRepository
     ) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
@@ -39,6 +43,7 @@ public class OrderService {
         this.userProfileRepository= userProfileRepository;
         this.warehouseInventoryRepository= warehouseInventoryRepository;
         this.deliveryPartnerRepository= deliveryPartnerRepository;
+        this.productRepository= productRepository;
     }
 
     @Transactional
@@ -59,6 +64,7 @@ public class OrderService {
         double userLat= userProfile.getCurrentLatitude();
         double userLon= userProfile.getCurrentLongitude();
 
+
         // 3. find nearest warehouse.
         Warehouse nearest= warehouseService.findNearestWarehouse(userLat,userLon);
 
@@ -68,9 +74,27 @@ public class OrderService {
 
         Integer warehouseId= nearest.getId();
         // 4. validate the stock in the inventory before proceeding.
+
+        Map<Integer, Product> productMap = new HashMap<>();
+
+        Double totalPrice= 0.0;
         for(CartItem c: cart){
+
             int productId= c.getProductId();
+            Product product = productRepository.findById(c.getProductId())
+                    .orElseThrow(() ->
+                        new RuntimeException(
+                            "The product (ID: " + c.getProductId() +
+                            ") is no longer available. Please remove it from the cart."
+                        )
+                    );
+
+            productMap.put(c.getProductId(), product);
+
             int qty= c.getQuantity();
+            Double unitPrice= product.getPrice();
+
+            totalPrice+= unitPrice*qty;
 
             WarehouseInventory inventory= warehouseInventoryRepository.findByWarehouseIdAndProductId(warehouseId,productId);
             if(inventory==null){
@@ -98,6 +122,7 @@ public class OrderService {
         order.setWarehouseId(nearest.getId());
         order.setDeliveryPartnerId(partner.getId());
         order.setStatus("PLACED");
+        order.setPrice(totalPrice); // Update the total Price of the order T.P
         order= orderRepo.save(order);
 
         partner.setCurrentOrderId(order.getId());
@@ -106,10 +131,16 @@ public class OrderService {
 
         // 6. save orderItems.
         for(CartItem c: cart){
+            Product product= productMap.get(c.getProductId());
+
             OrderItem item= new OrderItem();
             item.setOrderId(order.getId());
             item.setProductId(c.getProductId());
             item.setQuantity(c.getQuantity());
+
+
+            item.setPrice(product.getPrice());
+            item.setPriceByQuantity(product.getPrice()*c.getQuantity());
             itemRepo.save(item);
         }
 
@@ -121,9 +152,7 @@ public class OrderService {
         return order;
     }
 
-//    public List<Order> getOrdersByPartnerId(Integer partnerId) {
-//        return orderRepo.findByDeliveryPartnerId(partnerId);
-//    }
+
 
 
     public List<Order> getOrdersByDeliveryPartnerId(Integer id) {

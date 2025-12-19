@@ -18,6 +18,8 @@ public class OrderHistory {
     private Integer id;
 
     private Integer orderId;
+
+    private Double totalPrice= 0.0;
     private String status; // PLACED, ASSIGNED, PICKED, DELIVERED
     private LocalDateTime updatedAt;
 }

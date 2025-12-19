@@ -19,6 +19,8 @@ public class Order {
 
     private Integer deliveryPartnerId;
 
+    private Double price= 0.0;
+
     private String status;
 
     private LocalDateTime createdAt;

@@ -8,7 +8,7 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import org.springframework.stereotype.Component;
 
-@Component
+
 @Data
 @Entity
 @Table(name = "order_item")
@@ -21,4 +21,7 @@ public class OrderItem {
     private Integer orderId;
     private Integer productId;
     private Integer quantity;
+    private Double price;
+    private Double priceByQuantity;
+
 }
