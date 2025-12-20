@@ -128,9 +128,7 @@ public class OrderService {
         order.setPrice(totalPrice); // Update the total Price of the order T.P
         order= orderRepo.save(order);
 
-        partner.setCurrentOrderId(order.getId());
-        partner.setStatus("BUSY");
-        deliveryPartnerRepository.save(partner);
+
 
         // 6. save orderItems.
         for(CartItem c: cart){
@@ -155,13 +153,6 @@ public class OrderService {
         return order;
     }
 
-    public void deliveredOrder(String username, Integer orderId) {
-        try{
-            System.out.println(username+orderId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     public List<Order> getOrdersByDeliveryPartnerId(Integer id) {
         return orderRepo.findByDeliveryPartnerIdAndStatusNot(id,"DELIVERED");

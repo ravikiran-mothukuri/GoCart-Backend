@@ -115,7 +115,7 @@ public class OrderController {
             String token= authHeader.replace("Bearer ","");
             String username= jwtUtil.extractUserName(token);
 
-            orderService.deliveredOrder(username,orderId);
+            deliveryPartnerService.markDelivered(username, orderId);
 
             return ResponseEntity.ok(Map.of("success",true));
 

@@ -1,11 +1,7 @@
 package com.MyAmazon.MyAmazon.model;
 
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
@@ -23,8 +19,13 @@ public class DeliveryPartner {
 
     private String password;
     private String name= "User";
-    private String online= "OFF";
-    private String status= "IDLE";
+
+    @Column(nullable = false)
+    private String online = "OFF";
+
+    @Column(nullable = false)
+    private String status = "IDLE";
+
 
     private String vehicle= "BIKE"; // BIKE, SCOOTER.
 

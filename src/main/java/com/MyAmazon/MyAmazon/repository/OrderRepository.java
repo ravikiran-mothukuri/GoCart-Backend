@@ -13,10 +13,10 @@ public interface OrderRepository extends JpaRepository<Order,Integer> {
 
 
 
-    @Query("SELECT ord FROM Order ord WHERE ord.deliveryPartnerId = :id AND ord.status <> :status")
-    List<Order> findByDeliveryPartnerIdAndStatusNot(@Param("id") Integer deliveryPartnerId, @Param("status") String status);
-
     List<Order> findByDeliveryPartnerId(Integer partnerId);
 
     List<Order> findOrderByUserId(Integer userId);
+
+    List<Order> findByDeliveryPartnerIdAndStatusNot(Integer deliveryPartnerId, String status);
+
 }

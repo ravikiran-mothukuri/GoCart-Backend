@@ -55,6 +55,10 @@ public class DeliveryPartnerService {
         if (deliveryPartner.getCurrentLongitude() == null)
             deliveryPartner.setCurrentLongitude(0.0);
 
+        deliveryPartner.setOnline("OFF");
+        deliveryPartner.setStatus("IDLE");
+
+
         // to track and save the important details.
         logger.info("Registering new delivery partner: {}", deliveryPartner.getUsername());
 
@@ -172,11 +176,23 @@ public class DeliveryPartnerService {
 
         deliveryPartnerRepository.save(partner);
         order.setStatus("DELIVERED");
-        OrderHistory orderHistory= orderHistoryRepository.getOrderHistoryByOrderId(order.getId());
+
+        OrderHistory orderHistory = orderHistoryRepository
+                .findTopByOrderIdOrderByUpdatedAtDesc(order.getId())
+                .orElseThrow(() -> new RuntimeException("Order history not found"));
 
 
         orderRepository.save(order);
-        orderHistoryService.log(orderId, "DELIVERED", orderHistory.getTotalPrice(),orderHistory.getDeliveryPartnerId());
+
+        orderHistoryService.log(
+                orderId,
+                "DELIVERED",
+                order.getPrice(),
+                partner.getId()
+        );
+
+
+
 
     }
 

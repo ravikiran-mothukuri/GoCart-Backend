@@ -297,15 +297,22 @@ public class DeliveryPartnerController {
                     })
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "orders", orderDetails,
-                    "currentOrderId", partner.getCurrentOrderId()
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("orders", orderDetails);
+            response.put("currentOrderId", partner.getCurrentOrderId()); // null is OK
+
+            return ResponseEntity.ok(response);
+
         } catch (Exception e) {
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "Failed to fetch orders: " + e.getMessage()));
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
         }
+
     }
 
     @GetMapping("/order/completed")

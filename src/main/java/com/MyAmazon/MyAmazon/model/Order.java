@@ -27,6 +27,6 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+       this.createdAt = LocalDateTime.now();
     }
 }

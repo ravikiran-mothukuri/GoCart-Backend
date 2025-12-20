@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderHistoryRepository extends JpaRepository<OrderHistory,Integer> {
@@ -31,7 +32,6 @@ AND oh.status = 'DELIVERED'
 
     List<OrderHistory> findByDeliveryPartnerIdAndStatus(Integer deliveryPartnerId, String status);
 
-    OrderHistory getOrderHistoryByOrderId(Integer id);
 
     // New queries for earnings calculation
     @Query("SELECT COALESCE(SUM(oh.totalPrice), 0.0) FROM OrderHistory oh " +
@@ -61,4 +61,7 @@ AND oh.status = 'DELIVERED'
             "WHERE oh.deliveryPartnerId = :partnerId " +
             "AND oh.status = 'DELIVERED'")
     Integer countTotalDeliveriesByPartner(@Param("partnerId") Integer partnerId);
+
+    Optional<OrderHistory> findTopByOrderIdOrderByUpdatedAtDesc(Integer orderId);
+
 }
