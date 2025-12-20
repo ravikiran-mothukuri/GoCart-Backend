@@ -23,9 +23,12 @@ public class Product {
     private Double price;
     private String category;
     private Integer quantity;
-    private LocalDate releasedate;
+    @Column(name = "releasedate")
+    private LocalDate releaseDate;
+    
     private Boolean available;
 
+    @Column(name = "image_url")
     private String imageUrl;
 
 
