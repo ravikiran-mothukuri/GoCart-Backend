@@ -1,13 +1,14 @@
 package com.MyAmazon.MyAmazon.controller;
 
+import com.MyAmazon.MyAmazon.dto.DeliveredOrderDTO;
+import com.MyAmazon.MyAmazon.dto.DeliveryEarningsDTO;
 import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
-import com.MyAmazon.MyAmazon.model.DeliveryPartner;
-import com.MyAmazon.MyAmazon.model.Order;
-import com.MyAmazon.MyAmazon.model.OrderItem;
-import com.MyAmazon.MyAmazon.model.UserProfile;
+import com.MyAmazon.MyAmazon.dto.OrderTrackingDTO;
+import com.MyAmazon.MyAmazon.model.*;
 import com.MyAmazon.MyAmazon.repository.OrderItemRepository;
 import com.MyAmazon.MyAmazon.repository.UserProfileRepository;
 import com.MyAmazon.MyAmazon.service.DeliveryPartnerService;
+import com.MyAmazon.MyAmazon.service.OrderHistoryService;
 import com.MyAmazon.MyAmazon.service.OrderService;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.springframework.http.HttpStatus;
@@ -30,13 +31,15 @@ public class DeliveryPartnerController {
     private final OrderItemRepository orderItemRepository;
     private final UserProfileRepository userProfileRepository;
     private final OrderService orderService;
+    private final OrderHistoryService orderHistoryService;
 
-    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil, OrderItemRepository orderItemRepository,UserProfileRepository userProfileRepository,OrderService orderService){
+    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil, OrderItemRepository orderItemRepository,UserProfileRepository userProfileRepository,OrderService orderService,OrderHistoryService orderHistoryService){
         this.deliveryPartnerService= deliveryPartnerService;
         this.jwtUtil= jwtUtil;
         this.orderItemRepository= orderItemRepository;
         this.userProfileRepository= userProfileRepository;
         this.orderService= orderService;
+        this.orderHistoryService= orderHistoryService;
     }
 
     // Register a new Delivery Partner.
@@ -309,19 +312,114 @@ public class DeliveryPartnerController {
     public ResponseEntity<?> getAllOrdersByUserId(@RequestHeader("Authorization") String authHeader){
         try{
             String token = authHeader.replace("Bearer ", "");
-            String username = jwtUtil.extractUserName(token);
+            String username = jwtUtil.extractUserName(token); // get the delivery partner username
 
-            DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
-            List<Order> totalOrders= orderService.getOrdersByDeliveryPartnerId(partner.getId());
+            DeliveryPartner partner = deliveryPartnerService.getByUsername(username); // the exact delivery man we get the id of him.
+
+            List<DeliveredOrderDTO> orders =
+                    orderHistoryService.getDeliveredOrders(partner.getId());
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "orders", totalOrders
+                    "orders", orders
             ));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Failed to fetch completed orders"));
         }
     }
+
+    @GetMapping("/earnings")
+    public ResponseEntity<?> getEarnings(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
+
+            DeliveryEarningsDTO earnings = orderHistoryService.calculateEarnings(partner.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "earnings", earnings
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to fetch earnings: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/tracking/{orderId}")
+    public ResponseEntity<?> getOrderTracking(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            DeliveryPartner partner = deliveryPartnerService.getByUsername(username);
+            Order order = orderService.getOrderById(orderId);
+
+            if (order == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Order not found"));
+            }
+
+            if (!order.getDeliveryPartnerId().equals(partner.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("success", false, "message", "Not authorized for this order"));
+            }
+
+            UserProfile userProfile = userProfileRepository.findByUserId(order.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User profile not found"));
+
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+
+            OrderTrackingDTO tracking = new OrderTrackingDTO();
+            tracking.setOrderId(order.getId());
+            tracking.setCustomerName(userProfile.getFirstname());
+            tracking.setCustomerAddress(userProfile.getAddress());
+            tracking.setCustomerMobile(userProfile.getMobile());
+            tracking.setCustomerLatitude(userProfile.getCurrentLatitude());
+            tracking.setCustomerLongitude(userProfile.getCurrentLongitude());
+            tracking.setDeliveryPartnerLatitude(partner.getCurrentLatitude());
+            tracking.setDeliveryPartnerLongitude(partner.getCurrentLongitude());
+            tracking.setStatus(order.getStatus());
+            tracking.setTotalPrice(order.getPrice());
+            tracking.setItemCount(items.size());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "tracking", tracking
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to fetch tracking: " + e.getMessage()));
+        }
+    }
+
+    // Update delivery partner location during delivery
+    @PutMapping("/tracking/update-location/{orderId}")
+    public ResponseEntity<?> updateDeliveryLocation(@RequestHeader("Authorization") String authHeader,@PathVariable Integer orderId,@RequestBody Map<String, Double> location) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            double lat = location.get("lat");
+            double lon = location.get("lon");
+
+            DeliveryPartner partner = deliveryPartnerService.updateLocation(username, lat, lon);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "location", Map.of(
+                            "latitude", partner.getCurrentLatitude(),
+                            "longitude", partner.getCurrentLongitude()
+                    )
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to update location"));
+        }
+    }
+
 
 }

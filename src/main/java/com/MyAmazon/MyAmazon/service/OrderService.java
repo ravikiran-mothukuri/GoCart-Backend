@@ -4,6 +4,9 @@ import com.MyAmazon.MyAmazon.model.*;
 import com.MyAmazon.MyAmazon.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.HashMap;
 import java.util.List;
@@ -148,12 +151,17 @@ public class OrderService {
         cartRepo.deleteByUserId(user.getId());
 
         // 8. log the history.
-        historyService.log(order.getId(), "PLACED");
+        historyService.log(order.getId(), "PLACED",totalPrice,partner.getId());
         return order;
     }
 
-
-
+    public void deliveredOrder(String username, Integer orderId) {
+        try{
+            System.out.println(username+orderId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public List<Order> getOrdersByDeliveryPartnerId(Integer id) {
         return orderRepo.findByDeliveryPartnerIdAndStatusNot(id,"DELIVERED");
@@ -161,5 +169,10 @@ public class OrderService {
 
     public List<Order> getOrdersByUserId(int id) {
         return orderRepo.findOrderByUserId(id);
+    }
+
+    public Order getOrderById(Integer orderId) {
+        return orderRepo.findById(orderId)
+                .orElse(null);
     }
 }

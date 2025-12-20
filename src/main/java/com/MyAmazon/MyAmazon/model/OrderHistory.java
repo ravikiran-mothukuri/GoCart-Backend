@@ -22,4 +22,5 @@ public class OrderHistory {
     private Double totalPrice= 0.0;
     private String status; // PLACED, ASSIGNED, PICKED, DELIVERED
     private LocalDateTime updatedAt;
+    private Integer deliveryPartnerId;
 }

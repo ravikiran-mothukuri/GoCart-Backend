@@ -25,7 +25,7 @@ public class Product {
     private Integer quantity;
     @Column(name = "releasedate")
     private LocalDate releaseDate;
-    
+
     private Boolean available;
 
     @Column(name = "image_url")

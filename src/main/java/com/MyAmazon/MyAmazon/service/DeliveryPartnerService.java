@@ -4,7 +4,9 @@ import com.MyAmazon.MyAmazon.dto.DeliveryProfileUpdateDTO;
 import com.MyAmazon.MyAmazon.model.DeliveryPartner;
 import com.MyAmazon.MyAmazon.model.Order;
 
+import com.MyAmazon.MyAmazon.model.OrderHistory;
 import com.MyAmazon.MyAmazon.repository.DeliveryPartnerRepository;
+import com.MyAmazon.MyAmazon.repository.OrderHistoryRepository;
 import com.MyAmazon.MyAmazon.repository.OrderRepository;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.slf4j.Logger;
@@ -25,13 +27,15 @@ public class DeliveryPartnerService {
     public PasswordEncoder passwordEncoder;
     public OrderRepository orderRepository;
     public OrderHistoryService orderHistoryService;
+    private final OrderHistoryRepository orderHistoryRepository;
 
-    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder,OrderRepository orderRepository,OrderHistoryService orderHistoryService){
+    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder,OrderRepository orderRepository,OrderHistoryService orderHistoryService,OrderHistoryRepository orderHistoryRepository){
         this.deliveryPartnerRepository= deliveryPartnerRepository;
         this.jwtUtil= jwtUtil;
         this.passwordEncoder= passwordEncoder;
         this.orderRepository= orderRepository;
         this.orderHistoryService= orderHistoryService;
+        this.orderHistoryRepository= orderHistoryRepository;
     }
 
     public DeliveryPartner register(DeliveryPartner deliveryPartner) {
@@ -168,8 +172,11 @@ public class DeliveryPartnerService {
 
         deliveryPartnerRepository.save(partner);
         order.setStatus("DELIVERED");
+        OrderHistory orderHistory= orderHistoryRepository.getOrderHistoryByOrderId(order.getId());
+
+
         orderRepository.save(order);
-        orderHistoryService.log(orderId, "DELIVERED");
+        orderHistoryService.log(orderId, "DELIVERED", orderHistory.getTotalPrice(),orderHistory.getDeliveryPartnerId());
 
     }
 
@@ -205,5 +212,10 @@ public class DeliveryPartnerService {
 
         return deliveryPartnerRepository.save(currentData);
 
+    }
+
+    public DeliveryPartner getById(Integer id) {
+        return deliveryPartnerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Delivery partner not found: " + id));
     }
 }
