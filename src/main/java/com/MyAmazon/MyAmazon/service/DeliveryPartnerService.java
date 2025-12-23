@@ -28,14 +28,16 @@ public class DeliveryPartnerService {
     public OrderRepository orderRepository;
     public OrderHistoryService orderHistoryService;
     private final OrderHistoryRepository orderHistoryRepository;
+    private final OrderSseService orderSseService;
 
-    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder,OrderRepository orderRepository,OrderHistoryService orderHistoryService,OrderHistoryRepository orderHistoryRepository){
+    public DeliveryPartnerService(DeliveryPartnerRepository deliveryPartnerRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder,OrderRepository orderRepository,OrderHistoryService orderHistoryService,OrderHistoryRepository orderHistoryRepository,OrderSseService orderSseService){
         this.deliveryPartnerRepository= deliveryPartnerRepository;
         this.jwtUtil= jwtUtil;
         this.passwordEncoder= passwordEncoder;
         this.orderRepository= orderRepository;
         this.orderHistoryService= orderHistoryService;
         this.orderHistoryRepository= orderHistoryRepository;
+        this.orderSseService= orderSseService;
     }
 
     public DeliveryPartner register(DeliveryPartner deliveryPartner) {
@@ -150,9 +152,13 @@ public class DeliveryPartnerService {
 
         order.setStatus("PICKED_UP");
         orderRepository.save(order);
+
 //        logger.info("Partner {} picked up order {}", username, orderId);
         orderHistoryService.log(orderId, "PICKED_UP");
 
+        // Send the SSE emitter active.
+
+        orderSseService.sendUpdate(orderId,"PICKED_UP");
     }
 
 
@@ -165,6 +171,8 @@ public class DeliveryPartnerService {
 
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
 
+
+
         partner.setCurrentOrderId(null);
 
         // Set status based on online status
@@ -176,6 +184,8 @@ public class DeliveryPartnerService {
 
         deliveryPartnerRepository.save(partner);
         order.setStatus("DELIVERED");
+
+        orderSseService.sendUpdate(orderId, "DELIVERED");
 
         OrderHistory orderHistory = orderHistoryRepository
                 .findTopByOrderIdOrderByUpdatedAtDesc(order.getId())
@@ -190,8 +200,6 @@ public class DeliveryPartnerService {
                 order.getPrice(),
                 partner.getId()
         );
-
-
 
 
     }

@@ -16,6 +16,9 @@ public class OrderTrackingDTO {
     private Double customerLongitude;
     private Double deliveryPartnerLatitude;
     private Double deliveryPartnerLongitude;
+
+    private String deliveryPersonName;
+    private String deliveryMobile;
     private String status;
     private Double totalPrice;
     private Integer itemCount;

@@ -22,8 +22,9 @@ public class OrderService {
     private final CartItemRepository cartRepo;
     private final WarehouseInventoryRepository warehouseInventoryRepository;
     private final UserProfileRepository userProfileRepository;
-    private final DeliveryPartnerRepository deliveryPartnerRepository;
     private final ProductRepository productRepository;
+    private final OrderSseService orderSseService;
+    private final DeliveryNotificationSseService deliveryNotificationSseService;
 
     public OrderService(
             OrderRepository orderRepo,
@@ -35,7 +36,9 @@ public class OrderService {
             UserProfileRepository userProfileRepository,
             WarehouseInventoryRepository warehouseInventoryRepository,
             DeliveryPartnerRepository deliveryPartnerRepository,
-            ProductRepository productRepository
+            ProductRepository productRepository,
+            OrderSseService orderSseService,
+            DeliveryNotificationSseService deliveryNotificationSseService
     ) {
         this.orderRepo = orderRepo;
         this.itemRepo = itemRepo;
@@ -45,8 +48,9 @@ public class OrderService {
         this.cartRepo = cartRepo;
         this.userProfileRepository= userProfileRepository;
         this.warehouseInventoryRepository= warehouseInventoryRepository;
-        this.deliveryPartnerRepository= deliveryPartnerRepository;
+        this.deliveryNotificationSseService= deliveryNotificationSseService;
         this.productRepository= productRepository;
+        this.orderSseService= orderSseService;
     }
 
     @Transactional
@@ -124,9 +128,19 @@ public class OrderService {
         order.setUsername(user.getUsername());
         order.setWarehouseId(nearest.getId());
         order.setDeliveryPartnerId(partner.getId());
+
         order.setStatus("PLACED");
         order.setPrice(totalPrice); // Update the total Price of the order T.P
         order= orderRepo.save(order);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", order.getId());
+        payload.put("username", order.getUsername());
+
+        deliveryNotificationSseService.sendNewOrder(
+                partner.getUsername(),
+                payload
+        );
 
 
 
@@ -150,6 +164,8 @@ public class OrderService {
 
         // 8. log the history.
         historyService.log(order.getId(), "PLACED",totalPrice,partner.getId());
+
+        orderSseService.sendUpdate(order.getId(), "PLACED");
         return order;
     }
 

@@ -7,11 +7,14 @@ import com.MyAmazon.MyAmazon.repository.UserProfileRepository;
 import com.MyAmazon.MyAmazon.repository.UserRepository;
 import com.MyAmazon.MyAmazon.service.DeliveryPartnerService;
 import com.MyAmazon.MyAmazon.service.OrderService;
+import com.MyAmazon.MyAmazon.service.OrderSseService;
 import com.MyAmazon.MyAmazon.service.UserService;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.Serializable;
 import java.util.List;
@@ -28,16 +31,18 @@ public class OrderController {
     private final DeliveryPartnerService deliveryPartnerService;
     private final UserProfileRepository userProfileRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderSseService orderSseService;
 
 
 
-    public OrderController(OrderService orderService, JwtUtil jwtUtil, UserRepository userRepo,DeliveryPartnerService deliveryPartnerService, UserProfileRepository userProfileRepository,OrderItemRepository orderItemRepository) {
+    public OrderController(OrderService orderService, JwtUtil jwtUtil, UserRepository userRepo,DeliveryPartnerService deliveryPartnerService, UserProfileRepository userProfileRepository,OrderItemRepository orderItemRepository,OrderSseService orderSseService) {
         this.orderService = orderService;
         this.jwtUtil = jwtUtil;
         this.userRepo = userRepo;
         this.deliveryPartnerService= deliveryPartnerService;
         this.userProfileRepository= userProfileRepository;
         this.orderItemRepository= orderItemRepository;
+        this.orderSseService= orderSseService;
     }
 
     @PostMapping("/place")
@@ -49,15 +54,94 @@ public class OrderController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             Order order = orderService.placeOrder(user);
+            if(order==null)
+                throw new RuntimeException("The Order is not available");
+
             return ResponseEntity.ok(order);
 
         } catch (RuntimeException e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", e.getMessage()));
+                    .body(Map.of("something went wrong", e.getMessage()));
         }
     }
 
+
+    @GetMapping(value = "/tracking/stream/{orderId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamTracking(@PathVariable Integer orderId, @RequestParam String token) {
+        try {
+            // Validate token
+            String username = jwtUtil.extractUserName(token);
+
+            // Verify user owns this order
+            Order order = orderService.getOrderById(orderId);
+            if (order == null || !order.getUsername().equals(username)) {
+                throw new RuntimeException("Unauthorized");
+            }
+
+            return orderSseService.createEmitter(orderId);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create SSE connection: " + e.getMessage());
+        }
+    }
+
+    // Get tracking details for customer
+    @GetMapping("/tracking/{orderId}")
+    public ResponseEntity<?> getOrderTracking(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String username = jwtUtil.extractUserName(token);
+
+            Order order = orderService.getOrderById(orderId);
+
+            if (order == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Order not found"));
+            }
+
+            if (!order.getUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("success", false, "message", "Not authorized for this order"));
+            }
+
+            UserProfile userProfile = userProfileRepository.findByUserId(order.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User profile not found"));
+
+            DeliveryPartner deliveryPartner = null;
+            if (order.getDeliveryPartnerId() != null) {
+                deliveryPartner = deliveryPartnerService.getById(order.getDeliveryPartnerId());
+            }
+
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+
+            OrderTrackingDTO tracking = new OrderTrackingDTO();
+            tracking.setOrderId(order.getId());
+            tracking.setCustomerName(userProfile.getFirstname());
+            tracking.setCustomerAddress(userProfile.getAddress());
+            tracking.setCustomerMobile(userProfile.getMobile());
+            tracking.setCustomerLatitude(userProfile.getCurrentLatitude());
+            tracking.setCustomerLongitude(userProfile.getCurrentLongitude());
+
+            if (deliveryPartner != null) {
+                tracking.setDeliveryPartnerLatitude(deliveryPartner.getCurrentLatitude());
+                tracking.setDeliveryPartnerLongitude(deliveryPartner.getCurrentLongitude());
+            }
+
+            tracking.setDeliveryPersonName(deliveryPartner.getUsername());
+            tracking.setDeliveryMobile(deliveryPartner.getMobile());
+            tracking.setStatus(order.getStatus());
+            tracking.setTotalPrice(order.getPrice());
+            tracking.setItemCount(items.size());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "tracking", tracking
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to fetch tracking: " + e.getMessage()));
+        }
+    }
 
 
     @GetMapping("/user/orders")
@@ -126,54 +210,54 @@ public class OrderController {
 
     // Add this endpoint to OrderController.java
 
-    @GetMapping("/tracking/{orderId}")
-    public ResponseEntity<?> getOrderTrackingForUser(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String username = jwtUtil.extractUserName(token);
-
-            User user = userRepo.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            Order order = orderService.getOrderById(orderId);
-
-            if (order == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("success", false, "message", "Order not found"));
-            }
-
-            if (!order.getUserId().equals(user.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Not authorized for this order"));
-            }
-
-            UserProfile userProfile = userProfileRepository.findByUserId(user.getId())
-                    .orElseThrow(() -> new RuntimeException("User profile not found"));
-
-            DeliveryPartner partner = deliveryPartnerService.getById(order.getDeliveryPartnerId());
-
-            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-
-            OrderTrackingDTO tracking = new OrderTrackingDTO();
-            tracking.setOrderId(order.getId());
-            tracking.setCustomerName(userProfile.getFirstname());
-            tracking.setCustomerAddress(userProfile.getAddress());
-            tracking.setCustomerMobile(userProfile.getMobile());
-            tracking.setCustomerLatitude(userProfile.getCurrentLatitude());
-            tracking.setCustomerLongitude(userProfile.getCurrentLongitude());
-            tracking.setDeliveryPartnerLatitude(partner.getCurrentLatitude());
-            tracking.setDeliveryPartnerLongitude(partner.getCurrentLongitude());
-            tracking.setStatus(order.getStatus());
-            tracking.setTotalPrice(order.getPrice());
-            tracking.setItemCount(items.size());
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "tracking", tracking
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "Failed to fetch tracking: " + e.getMessage()));
-        }
-    }
+//    @GetMapping("/tracking/{orderId}")
+//    public ResponseEntity<?> getOrderTrackingForUser(@RequestHeader("Authorization") String authHeader, @PathVariable Integer orderId) {
+//        try {
+//            String token = authHeader.replace("Bearer ", "");
+//            String username = jwtUtil.extractUserName(token);
+//
+//            User user = userRepo.findByUsername(username)
+//                    .orElseThrow(() -> new RuntimeException("User not found"));
+//
+//            Order order = orderService.getOrderById(orderId);
+//
+//            if (order == null) {
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+//                        .body(Map.of("success", false, "message", "Order not found"));
+//            }
+//
+//            if (!order.getUserId().equals(user.getId())) {
+//                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+//                        .body(Map.of("success", false, "message", "Not authorized for this order"));
+//            }
+//
+//            UserProfile userProfile = userProfileRepository.findByUserId(user.getId())
+//                    .orElseThrow(() -> new RuntimeException("User profile not found"));
+//
+//            DeliveryPartner partner = deliveryPartnerService.getById(order.getDeliveryPartnerId());
+//
+//            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+//
+//            OrderTrackingDTO tracking = new OrderTrackingDTO();
+//            tracking.setOrderId(order.getId());
+//            tracking.setCustomerName(userProfile.getFirstname());
+//            tracking.setCustomerAddress(userProfile.getAddress());
+//            tracking.setCustomerMobile(userProfile.getMobile());
+//            tracking.setCustomerLatitude(userProfile.getCurrentLatitude());
+//            tracking.setCustomerLongitude(userProfile.getCurrentLongitude());
+//            tracking.setDeliveryPartnerLatitude(partner.getCurrentLatitude());
+//            tracking.setDeliveryPartnerLongitude(partner.getCurrentLongitude());
+//            tracking.setStatus(order.getStatus());
+//            tracking.setTotalPrice(order.getPrice());
+//            tracking.setItemCount(items.size());
+//
+//            return ResponseEntity.ok(Map.of(
+//                    "success", true,
+//                    "tracking", tracking
+//            ));
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(Map.of("success", false, "message", "Failed to fetch tracking: " + e.getMessage()));
+//        }
+//    }
 }

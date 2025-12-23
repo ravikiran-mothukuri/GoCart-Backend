@@ -10,6 +10,7 @@ import com.MyAmazon.MyAmazon.repository.UserProfileRepository;
 import com.MyAmazon.MyAmazon.service.DeliveryPartnerService;
 import com.MyAmazon.MyAmazon.service.OrderHistoryService;
 import com.MyAmazon.MyAmazon.service.OrderService;
+import com.MyAmazon.MyAmazon.service.OrderSseService;
 import com.MyAmazon.MyAmazon.util.JwtUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,14 +33,16 @@ public class DeliveryPartnerController {
     private final UserProfileRepository userProfileRepository;
     private final OrderService orderService;
     private final OrderHistoryService orderHistoryService;
+    private final OrderSseService orderSseService;
 
-    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil, OrderItemRepository orderItemRepository,UserProfileRepository userProfileRepository,OrderService orderService,OrderHistoryService orderHistoryService){
+    public DeliveryPartnerController(DeliveryPartnerService deliveryPartnerService, JwtUtil jwtUtil, OrderItemRepository orderItemRepository,UserProfileRepository userProfileRepository,OrderService orderService,OrderHistoryService orderHistoryService,OrderSseService orderSseService){
         this.deliveryPartnerService= deliveryPartnerService;
         this.jwtUtil= jwtUtil;
         this.orderItemRepository= orderItemRepository;
         this.userProfileRepository= userProfileRepository;
         this.orderService= orderService;
         this.orderHistoryService= orderHistoryService;
+        this.orderSseService= orderSseService;
     }
 
     // Register a new Delivery Partner.
@@ -415,6 +418,8 @@ public class DeliveryPartnerController {
 
             DeliveryPartner partner = deliveryPartnerService.updateLocation(username, lat, lon);
 
+            orderSseService.sendLocationUpdate(orderId,lat,lon);
+
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "location", Map.of(
@@ -427,6 +432,8 @@ public class DeliveryPartnerController {
                     .body(Map.of("success", false, "message", "Failed to update location"));
         }
     }
+
+
 
 
 }
