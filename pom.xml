@@ -8,10 +8,10 @@
 		<version>3.5.7</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.MyAmazon</groupId>
-	<artifactId>MyAmazon</artifactId>
+	<groupId>com.gocart</groupId>
+	<artifactId>gocart</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>MyAmazon</name>
+	<name>GoCart</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
@@ -76,23 +76,24 @@
         </dependency>
 
 
-        <dependency>
+        <!-- <dependency>
 			<groupId>com.mysql</groupId>
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
-		</dependency>
+		</dependency> -->
 
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.7.3</version>
-        </dependency>
+     <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>42.7.3</version>
+    </dependency>
 
-        <dependency>
+    <dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
