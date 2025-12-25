@@ -122,13 +122,17 @@ public class OrderController {
             tracking.setCustomerLatitude(userProfile.getCurrentLatitude());
             tracking.setCustomerLongitude(userProfile.getCurrentLongitude());
 
+
+
             if (deliveryPartner != null) {
                 tracking.setDeliveryPartnerLatitude(deliveryPartner.getCurrentLatitude());
                 tracking.setDeliveryPartnerLongitude(deliveryPartner.getCurrentLongitude());
+                tracking.setDeliveryPersonName(deliveryPartner.getUsername());
+                tracking.setDeliveryMobile(deliveryPartner.getMobile());
+            } else {
+                tracking.setDeliveryPersonName(null);
+                tracking.setDeliveryMobile(null);
             }
-
-            tracking.setDeliveryPersonName(deliveryPartner.getUsername());
-            tracking.setDeliveryMobile(deliveryPartner.getMobile());
             tracking.setStatus(order.getStatus());
             tracking.setTotalPrice(order.getPrice());
             tracking.setItemCount(items.size());
