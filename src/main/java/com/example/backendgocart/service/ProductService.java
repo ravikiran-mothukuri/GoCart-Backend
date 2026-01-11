@@ -20,18 +20,17 @@ public class ProductService {
     private CartItemRepository cartRepo;
     private WishlistItemRepository wishlistRepo;
 
-
     private final WarehouseRepository warehouseRepo;
     private final WarehouseInventoryRepository inventoryRepo;
 
-
     @Autowired
-    public ProductService(ProductRepository repo, CartItemRepository cartRepo, WishlistItemRepository wishlistRepo,WarehouseRepository warehouseRepo,WarehouseInventoryRepository inventoryRepo){
-        this.repo= repo;
-        this.cartRepo= cartRepo;
-        this.wishlistRepo= wishlistRepo;
-        this.warehouseRepo= warehouseRepo;
-        this.inventoryRepo= inventoryRepo;
+    public ProductService(ProductRepository repo, CartItemRepository cartRepo, WishlistItemRepository wishlistRepo,
+            WarehouseRepository warehouseRepo, WarehouseInventoryRepository inventoryRepo) {
+        this.repo = repo;
+        this.cartRepo = cartRepo;
+        this.wishlistRepo = wishlistRepo;
+        this.warehouseRepo = warehouseRepo;
+        this.inventoryRepo = inventoryRepo;
     }
 
     public List<Product> getAllProducts() {
@@ -42,22 +41,27 @@ public class ProductService {
         return repo.findById(id).orElse(null);
     }
 
-
     @Transactional
     public Product addProduct(Product product) {
-        Product savedProduct= repo.save(product);
-        Warehouse defaultWarehouse = warehouseRepo.findById(1).orElseThrow(() -> new RuntimeException("Default warehouse not found"));
+        Product savedProduct = repo.save(product);
 
-        WarehouseInventory inventory = new WarehouseInventory();
-        inventory.setProductId(product.getId());
-        inventory.setWarehouseId(defaultWarehouse.getId());
-        inventory.setQuantity(100);
-        inventoryRepo.save(inventory);
+        // Add inventory to ALL warehouses
+        List<Warehouse> allWarehouses = warehouseRepo.findAll();
+
+        if (allWarehouses.isEmpty()) {
+            throw new RuntimeException("No warehouses found. Please create at least one warehouse.");
+        }
+
+        for (Warehouse warehouse : allWarehouses) {
+            WarehouseInventory inventory = new WarehouseInventory();
+            inventory.setProductId(savedProduct.getId());
+            inventory.setWarehouseId(warehouse.getId());
+            inventory.setQuantity(100); // Default: 100 units per warehouse
+            inventoryRepo.save(inventory);
+        }
 
         return savedProduct;
     }
-
-
 
     @Transactional
     public void deleteProductById(int id) {
@@ -73,7 +77,3 @@ public class ProductService {
         return repo.searchByNameOrCategoryOrDescription(query);
     }
 }
-
-
-
-
